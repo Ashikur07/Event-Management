@@ -2,25 +2,25 @@
   <defs>
     <linearGradient id="bgGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
       <stop stop-color="#3B82F6"/>
-      <stop offset="1" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#2563EB"/>
     </linearGradient>
-    
-    <filter id="boxShadow" x="120" y="120" width="272" height="272" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-opacity="0.25"/>
+
+    <filter id="bagShadow" x="130" y="110" width="252" height="300" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-opacity="0.2"/>
     </filter>
   </defs>
 
   <rect width="512" height="512" rx="128" fill="url(#bgGradient)"/>
-  
-  <g filter="url(#boxShadow)" transform="translate(136, 146)">
-    <path d="M20 80 L220 80 L200 200 H40 L20 80 Z" fill="#E0E7FF"/>
-    <path d="M20 80 L40 200 L200 200 L220 80" stroke="#4F46E5" stroke-width="10" stroke-linejoin="round"/>
-    
-    <path d="M20 80 L60 20" stroke="#E0E7FF" stroke-width="15" stroke-linecap="round"/>
-    <path d="M220 80 L180 20" stroke="#E0E7FF" stroke-width="15" stroke-linecap="round"/>
-    
-    <path d="M120 40 L135 70 L165 75 L140 95 L150 125 L120 110 L90 125 L100 95 L75 75 L105 70 Z" fill="#FCD34D" stroke="#F59E0B" stroke-width="4"/>
-  </g>
 
-  <circle cx="380" cy="130" r="25" fill="#10B981" stroke="white" stroke-width="6"/>
+  <g filter="url(#bagShadow)" transform="translate(156, 136)">
+    
+    <path d="M50 60 V40 C50 15, 150 15, 150 40 V60" stroke="#E0E7FF" stroke-width="12" stroke-linecap="round" fill="none"/>
+    
+    <rect x="0" y="60" width="200" height="220" rx="25" fill="white"/>
+    
+    <path d="M0 100 H200" stroke="#F1F5F9" stroke-width="2"/>
+
+    <circle cx="100" cy="170" r="50" fill="#10B981"/>
+    <path d="M75 170 L95 190 L125 150" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>
