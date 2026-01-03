@@ -121,9 +121,9 @@ export default function DistributePage() {
   };
 
   return (
-    <MobileLayout >
+    <MobileLayout title="Distribution">
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">
+      <h1 className="text-2xl font-bold text-gray-800 mb-8">
         📦 Kit Distribution Point
       </h1>
 
