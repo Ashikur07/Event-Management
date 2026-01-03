@@ -1,374 +1,262 @@
-'use client';
-import { useState, useEffect } from 'react';
-import MobileLayout from '@/components/MobileLayout';
-import Swal from 'sweetalert2'; 
+'use client'; 
+import { useState, useRef, useEffect } from 'react';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
-export default function HistoryPage() {
-  const [activeTab, setActiveTab] = useState('distributed'); 
-  const [items, setItems] = useState([]);
-  const [historyData, setHistoryData] = useState({ 
-    history: [], 
-    pagination: { page: 1, totalPages: 1 }, 
-    stats: { distributedCount: 0, pendingCount: 0, sizes: {} } 
-  });
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [selectedSession, setSelectedSession] = useState('');
+export default function DistributePage() {
+  // সব ভেরিয়েবল নাম Ticket রাখলাম UI এর সাথে মিল রাখার জন্য
+  const [inputTicket, setInputTicket] = useState(''); 
+  const [ticketData, setTicketData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   
-  // Modal States
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [isEditingSize, setIsEditingSize] = useState(false); // Edit Mode State
-  const [newSizeVal, setNewSizeVal] = useState('');
-
-  // Session Generator
-  const sessions = [];
-  for (let i = 1998; i <= 2024; i++) {
-    const nextYear = (i + 1).toString().slice(-2);
-    sessions.push(`${i}-${nextYear}`);
-  }
-  sessions.reverse(); 
-
-  const getIcon = (name) => {
-    const n = name.toLowerCase();
-    if (n.includes('bag')) return '🎒';
-    if (n.includes('pen')) return '🖊️';
-    if (n.includes('polo') || n.includes('tshirt') || n.includes('shirt')) return '👕';
-    if (n.includes('jersey') || n.includes('fabric')) return '🎽';
-    if (n.includes('mug') || n.includes('cup')) return '☕';
-    if (n.includes('cap') || n.includes('hat')) return '🧢';
-    if (n.includes('badge') || n.includes('id') || n.includes('card')) return '🪪';
-    if (n.includes('food') || n.includes('box')) return '🍱';
-    if (n.includes('souvenir') || n.includes('book')) return '📔';
-    return '📦'; 
-  };
-
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [itemsRes, historyRes] = await Promise.all([
-         fetch('/api/kits/items'), 
-         fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}&session=${selectedSession}`) 
-      ]);
-      const itemsData = await itemsRes.json();
-      const hData = await historyRes.json();
-      setItems(itemsData);
-      setHistoryData(hData);
-    } catch (error) { console.error(error); } 
-    finally { setLoading(false); }
-  };
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => { fetchAll(); }, 300);
-    return () => clearTimeout(timer);
-  }, [page, search, activeTab, selectedSession]);
+    if (!showScanner && !isModalOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [ticketData, isModalOpen, showScanner]);
 
-  // --- ACTIONS ---
+  // API কল: এখানে ticketNumber নামেই পাঠাবো
+  const checkTicket = async (ticketVal) => {
+    if (!ticketVal) return;
 
-  // 1. Undo Distribution (English Alert)
-  const handleUndo = async () => {
-    const result = await Swal.fire({
-        title: 'Return Kit?',
-        text: "This will mark the student as Pending and increase the stock count.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, Return it!',
-        cancelButtonText: 'Cancel'
-    });
+    setLoading(true);
+    setError('');
+    setSuccessMsg('');
+    setTicketData(null);
+    setShowScanner(false);
 
-    if (result.isConfirmed) {
-        try {
-            const res = await fetch('/api/kits/manage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'undo', id: selectedStudent._id })
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Returned!',
-                    text: 'Kit has been returned to stock.',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                setSelectedStudent(null);
-                fetchAll(); 
-            } else {
-                Swal.fire('Error', data.error, 'error');
-            }
-        } catch (error) {
-            console.error(error);
-            Swal.fire('Error', 'Network error occurred.', 'error');
-        }
+    try {
+      // API তে ticketNumber হিসেবেই পাঠাচ্ছি (API সেটা roll হিসেবে ধরবে)
+      const res = await fetch(`/api/distribute?ticketNumber=${ticketVal}`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      setTicketData(data);
+      setInputTicket(ticketVal);
+      setIsModalOpen(true);
+    } catch (err) {
+      setError(err.message);
+      setTimeout(() => {
+        setInputTicket('');
+        inputRef.current?.focus();
+      }, 2000);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 2. Update Size (English Alert)
-  const handleUpdateSize = async () => {
-    try {
-        const res = await fetch('/api/kits/manage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'update_size', id: selectedStudent._id, newSize: newSizeVal })
-        });
-        const data = await res.json();
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    checkTicket(inputTicket);
+  };
 
-        if (res.ok) {
-            // Update UI instantly
-            setSelectedStudent(prev => ({ ...prev, tShirtSize: newSizeVal }));
-            setIsEditingSize(false);
-            
-            Swal.fire({ 
-                icon: 'success', 
-                title: 'Size Updated!', 
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 2000,
-                timerProgressBar: true
-            });
-            
-            fetchAll(); 
-        } else {
-            Swal.fire('Error', data.error, 'error');
-        }
-    } catch (error) { 
-        console.error(error);
-        Swal.fire('Error', 'Update failed!', 'error');
+  const handleScan = (result) => {
+    if (result) {
+      const rawValue = result[0]?.rawValue;
+      if (rawValue) {
+        checkTicket(rawValue);
+      }
     }
+  };
+
+  const confirmDistribute = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/distribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // আমরা লজিক্যালি roll বা ticket যেটাই পাঠাই, API সেটা roll কলামে চেক করবে
+        body: JSON.stringify({ ticketNumber: ticketData.roll }), 
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error);
+
+      setSuccessMsg(`🎉 Kit successfully given to ${ticketData.name}!`);
+      setIsModalOpen(false); 
+      setInputTicket('');
+      setTicketData(null);
+      
+      setTimeout(() => setSuccessMsg(''), 3000);
+
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    setInputTicket('');
+  };
+
+  // Alumni লজিক (Display purpose)
+  const getParticipantBadge = (type) => {
+    if (!type) return 'Guest';
+    if (type === 'Current Student') return 'Current Student';
+    if (type.includes('Alumni')) return 'Alumni'; 
+    return type;
   };
 
   return (
-    <MobileLayout title="History Log">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
       
-      {/* 1. Distributed Summary */}
-      {activeTab === 'distributed' && (
-        <div className="mb-6 animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Distributed Items</h3>
-            <div className="grid grid-cols-2 gap-3">
-                {items.map((item) => {
-                    const isSized = item.category === 'Sized';
-                    return (
-                        <div key={item._id} className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
-                            <div className="text-3xl mb-1">{getIcon(item.name)}</div>
-                            <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1">{item.name}</h4>
-                            <p className="text-xl font-extrabold text-indigo-600">
-                                {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span>
-                            </p>
-                            {isSized && (
-                                <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
-                                    <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
-                                        {Object.entries(historyData.stats.sizes || {}).map(([size, count]) => (
-                                            <span key={size}>{size}: {count}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-      )}
+      <h1 className="text-3xl font-bold text-gray-800 mb-8">📦 Kit Distribution Point</h1>
 
-      {/* 2. List Area */}
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[500px] relative flex flex-col">
-        <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem] space-y-3">
-            <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button 
-                    onClick={() => { setActiveTab('distributed'); setPage(1); }}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'distributed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    Distributed ({historyData.stats.distributedCount})
-                </button>
-                <button 
-                    onClick={() => { setActiveTab('pending'); setPage(1); }}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'pending' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    Pending ({historyData.stats.pendingCount})
-                </button>
-            </div>
-
-            <div className="flex gap-2">
-                <div className="relative flex-1">
-                    <input 
-                        type="text" 
-                        placeholder="Name, Roll..." 
-                        className="w-full bg-gray-50 text-gray-700 p-3 pl-10 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 text-sm"
-                        value={search}
-                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                    />
-                    <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                </div>
-                <select 
-                    value={selectedSession} 
-                    onChange={(e) => { setSelectedSession(e.target.value); setPage(1); }}
-                    className="bg-gray-50 text-gray-700 p-3 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-bold w-28 appearance-none"
-                >
-                    <option value="">All Batch</option>
-                    {sessions.map((session) => <option key={session} value={session}>{session}</option>)}
-                </select>
-            </div>
-        </div>
-
-        <div className="p-2 space-y-2 pb-20 flex-1">
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
-                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-xs">Loading records...</p>
-                </div>
-            ) : historyData.history.length > 0 ? (
-                historyData.history.map((record) => (
-                    <div 
-                        key={record._id} 
-                        // ক্লিক করলে সাইজ এডিটিং অফ থাকবে প্রথমে
-                        onClick={() => { setSelectedStudent(record); setIsEditingSize(false); }} 
-                        className="p-4 rounded-2xl hover:bg-gray-50 transition-all cursor-pointer border border-transparent hover:border-indigo-100 group active:scale-[0.98]"
-                    >
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeTab === 'distributed' ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-red-50 text-red-500 group-hover:bg-red-500 group-hover:text-white'}`}>
-                                    {record.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-800 text-sm leading-tight">{record.name}</h4>
-                                    <div className="flex items-center gap-2 mt-1.5">
-                                        <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded font-mono font-medium">{record.roll}</span>
-                                        <span className="text-[10px] text-indigo-500 border border-indigo-100 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">{record.session}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <svg className="w-5 h-5 text-gray-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                            </div>
-                        </div>
-                    </div>
-                ))
-            ) : (
-                <div className="text-center py-20 text-gray-400 text-sm"><p>No records found.</p></div>
-            )}
-        </div>
+      <div className="w-full max-w-md bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
         
-        {historyData.pagination.totalPages > 1 && (
-             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-gray-100 flex justify-between items-center rounded-b-[2rem]">
-                <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 disabled:opacity-50">Prev</button>
-                <span className="text-xs font-medium text-gray-400">Page {page} / {historyData.pagination.totalPages}</span>
-                <button disabled={page === historyData.pagination.totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">Next</button>
+        {/* QR Scanner Area */}
+        {showScanner ? (
+          <div className="mb-4 bg-black rounded-lg overflow-hidden relative border-2 border-indigo-500 aspect-square">
+             <Scanner 
+                onScan={handleScan}
+                allowMultiple={true}
+                scanDelay={2000}
+                components={{ audio: false, finder: false }}
+                styles={{ container: { width: '100%', height: '100%' } }}
+             />
+             <div className="absolute inset-0 border-[40px] border-black/50 flex items-center justify-center">
+                <div className="w-48 h-48 border-4 border-red-500/80 rounded-lg animate-pulse"></div>
              </div>
+            <button 
+              onClick={() => setShowScanner(false)}
+              className="absolute top-4 right-4 bg-white text-red-600 px-3 py-1 rounded-full text-xs font-bold shadow-md z-20"
+            >
+              CLOSE CAM
+            </button>
+          </div>
+        ) : (
+          <div className="text-center mb-4">
+            <button
+              onClick={() => setShowScanner(true)}
+              className="bg-gray-800 text-white w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition mb-4 shadow-md"
+            >
+              📷 Scan Ticket QR
+            </button>
+            <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-gray-300"></div>
+                {/* UI-তে Ticket লেখা শো করবে */}
+                <span className="flex-shrink mx-4 text-gray-400 text-sm">OR TYPE TICKET NO</span>
+                <div className="flex-grow border-t border-gray-300"></div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Input Form */}
+        <form onSubmit={handleSubmit} className="flex gap-2 mt-2">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputTicket}
+            onChange={(e) => setInputTicket(e.target.value)}
+            // Placeholder ও Ticket রিলেটেড
+            placeholder="ENTER TICKET NO"
+            className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-400 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg focus:border-indigo-500 focus:bg-white focus:ring-0 outline-none text-center tracking-widest font-mono uppercase transition-all"
+          />
+          <button 
+            type="submit"
+            disabled={loading}
+            className="bg-indigo-600 text-white px-6 rounded-lg font-bold hover:bg-indigo-700 transition disabled:opacity-50"
+          >
+            Go
+          </button>
+        </form>
+
+        {/* Messages */}
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-center font-semibold animate-pulse border border-red-200">
+            ❌ {error}
+          </div>
+        )}
+        {successMsg && (
+          <div className="mt-4 p-3 bg-green-100 text-green-700 rounded-lg text-center font-bold text-lg border border-green-200">
+            {successMsg}
+          </div>
         )}
       </div>
 
-      {/* --- STUDENT DETAILS MODAL --- */}
-      {selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudent(null)}></div>
-            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
-                <div className={`${selectedStudent.isUsed ? 'bg-indigo-600' : 'bg-red-500'} p-6 text-white text-center relative`}>
-                    <button onClick={() => setSelectedStudent(null)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 rounded-full p-1">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                    <div className={`w-16 h-16 bg-white ${selectedStudent.isUsed ? 'text-indigo-600' : 'text-red-500'} rounded-full mx-auto flex items-center justify-center text-3xl font-bold mb-3 shadow-lg`}>
-                        {selectedStudent.name.charAt(0)}
-                    </div>
-                    <h2 className="text-xl font-bold">{selectedStudent.name}</h2>
-                    <p className="text-white/80 text-sm opacity-90">{selectedStudent.email || 'No Email'}</p>
-                </div>
-
-                <div className="p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                            <p className="text-xs text-gray-500 uppercase font-bold mb-1">Roll Number</p>
-                            <p className="text-gray-800 font-mono font-bold">{selectedStudent.roll}</p>
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                            <p className="text-xs text-gray-500 uppercase font-bold mb-1">Session</p>
-                            <p className="text-gray-800 font-bold">{selectedStudent.session}</p>
-                        </div>
-                    </div>
-
-                    {/* ⭐ Size Management Section (Updated) */}
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl">👕</span>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-bold">T-Shirt Size</p>
-                                
-                                {isEditingSize ? (
-                                    <div className="flex items-center gap-2 mt-1 animate-in fade-in zoom-in">
-                                        <select 
-                                            value={newSizeVal || selectedStudent.tShirtSize} 
-                                            onChange={(e) => setNewSizeVal(e.target.value)}
-                                            className="bg-white border border-indigo-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-1 w-20"
-                                        >
-                                            {['S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        <button onClick={handleUpdateSize} className="bg-green-500 text-white p-1.5 rounded hover:bg-green-600 shadow-sm active:scale-90 transition">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                        </button>
-                                        <button onClick={() => setIsEditingSize(false)} className="bg-gray-300 text-gray-700 p-1.5 rounded hover:bg-gray-400 shadow-sm active:scale-90 transition">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xl font-black text-gray-900">{selectedStudent.tShirtSize}</p>
-                                        {/* Edit Button */}
-                                        <button 
-                                            onClick={() => { 
-                                                setNewSizeVal(selectedStudent.tShirtSize); // বর্তমান সাইজ সেট করে দিচ্ছি
-                                                setIsEditingSize(true); 
-                                            }} 
-                                            className="ml-2 w-7 h-7 flex items-center justify-center bg-gray-100 hover:bg-indigo-100 text-gray-400 hover:text-indigo-600 rounded-full transition border border-gray-200"
-                                            title="Edit Size"
-                                        >
-                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        
-                        {/* Status Badge */}
-                        <div className="text-right">
-                             {selectedStudent.isUsed ? (
-                                <span className="text-green-600 font-bold text-xs uppercase bg-green-100 px-2 py-1 rounded">Received</span>
-                             ) : (
-                                <span className="text-red-500 font-bold text-xs uppercase bg-red-100 px-2 py-1 rounded">Pending</span>
-                             )}
-                        </div>
-                    </div>
-
-                    {/* Undo Button */}
-                    {selectedStudent.isUsed && (
-                        <button 
-                            onClick={handleUndo}
-                            className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl transition flex items-center justify-center gap-2 active:scale-98"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                            Return Kit (Undo)
-                        </button>
-                    )}
-
-                    <div className="border-t border-gray-100 pt-4 mt-2">
-                         {selectedStudent.isUsed && (
-                             <div className="flex justify-between items-center text-sm mt-2">
-                                <span className="text-gray-500">Given At</span>
-                                <span className="text-gray-800 font-medium">
-                                    {new Date(selectedStudent.updatedAt).toLocaleString()}
-                                </span>
-                             </div>
-                         )}
-                    </div>
-                </div>
+      {/* --- CONFIRMATION POPUP (MODAL) --- */}
+      {isModalOpen && ticketData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
+            
+            <div className={`p-6 text-center ${ticketData.isUsed ? 'bg-red-50' : 'bg-indigo-50'}`}>
+              <h2 className={`text-2xl font-bold ${ticketData.isUsed ? 'text-red-600' : 'text-indigo-800'}`}>
+                {ticketData.isUsed ? '⚠️ Already Distributed!' : 'Ticket Verified'}
+              </h2>
+              
+              <div className="mt-3">
+                <span className={`px-4 py-1.5 rounded-full font-bold text-sm tracking-wide border shadow-sm
+                  ${getParticipantBadge(ticketData.participantType) === 'Alumni' 
+                    ? 'bg-purple-100 text-purple-700 border-purple-200' 
+                    : 'bg-blue-100 text-blue-700 border-blue-200'
+                  }`}>
+                  {getParticipantBadge(ticketData.participantType)}
+                </span>
+              </div>
             </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium">Name</span>
+                <span className="font-bold text-gray-800 text-lg">{ticketData.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium">Ticket / Roll</span>
+                {/* এখানে আমরা roll শো করছি কিন্তু লেবেল Ticket রাখছি বা চাইলে শুধু ভ্যালু দেখাতে পারি */}
+                <span className="font-mono font-bold text-gray-800">{ticketData.roll}</span>
+              </div>
+              <div className="flex justify-between border-b border-gray-100 pb-2">
+                <span className="text-gray-500 font-medium">Session</span>
+                <span className="font-bold text-gray-800">{ticketData.session}</span>
+              </div>
+              
+              <div className={`border rounded-lg p-4 flex justify-between items-center mt-4 ${ticketData.isUsed ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">👕</span>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase font-bold">Size</p>
+                    <p className="text-2xl font-black text-gray-800">{ticketData.tShirtSize}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 font-bold mb-1">STATUS</p>
+                  <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${ticketData.isUsed ? 'bg-red-200 text-red-800' : 'bg-green-600 text-white'}`}>
+                    {ticketData.isUsed ? 'DELIVERED' : 'READY TO GIVE'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 flex gap-3 border-t">
+              <button
+                onClick={handleCancel}
+                className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+              
+              {!ticketData.isUsed && (
+                <button
+                  onClick={confirmDistribute}
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 transition flex justify-center items-center gap-2"
+                >
+                  {loading ? 'Processing...' : '✅ CONFIRM'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-    </MobileLayout>
+    </div>
   );
 }
