@@ -10,7 +10,7 @@ const connectDB = async () => {
   await mongoose.connect(MONGODB_URI);
 };
 
-// 1. টিকেট চেক করা (GET)
+// 1. টিকেট চেক করা (GET) - আগের মতোই থাকছে
 export async function GET(request) {
   try {
     await connectDB();
@@ -34,7 +34,7 @@ export async function GET(request) {
   }
 }
 
-// 2. ডিস্ট্রিবিউশন কনফার্ম (POST)
+// 2. ডিস্ট্রিবিউশন কনফার্ম (POST) - ⭐ এখানে লজিক চেঞ্জ হয়েছে
 export async function POST(request) {
   try {
     await connectDB();
@@ -48,14 +48,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'This ticket has already been used!' }, { status: 400 });
     }
 
-    // --- ইনভেন্টরি আপডেট লজিক (Updated for Multiple Sized Items) ---
+    // --- ইনভেন্টরি আপডেট লজিক ---
     const tshirtSize = ticket.tShirtSize; 
     const sizeField = `sizeStock.${tshirtSize}`;
 
-    // ১. আগে চেক করি স্টক আছে কিনা (Polo বা Jersey যে কোনো একটা শেষ হলে এরর দিবে)
+    // ১. আগে চেক করি Sized আইটেম (Polo/Jersey) স্টক আছে কিনা
     const lowStockItems = await KitItem.find({ 
         category: 'Sized', 
-        [sizeField]: { $lte: 0 } // স্টক ০ বা তার কম
+        [sizeField]: { $lte: 0 } 
     });
 
     if (lowStockItems.length > 0) {
@@ -63,15 +63,23 @@ export async function POST(request) {
         return NextResponse.json({ error: `Stock out for size ${tshirtSize} in: ${names}!` }, { status: 400 });
     }
 
-    // ২. সব Sized আইটেম (Polo + Jersey) আপডেট (১ করে কমানো)
+    // ২. সব Sized আইটেম আপডেট (১ করে কমানো)
     await KitItem.updateMany(
       { category: 'Sized' }, 
       { $inc: { [sizeField]: -1 } }
     );
 
-    // ৩. সব General আইটেম আপডেট (১ করে কমানো)
+    // ⭐ ৩. General আইটেম আপডেট (Bag লজিক সহ)
+    let generalQuery = { category: 'General', stock: { $gt: 0 } };
+
+    // লজিক: যদি Current Student হয়, তবে সে Bag পাবে না
+    if (ticket.participantType === 'Current Student') {
+        // নামের মধ্যে 'Bag' থাকলে সেটা বাদ দিয়ে বাকিগুলো আপডেট করবে
+        generalQuery.name = { $not: { $regex: 'Bag', $options: 'i' } };
+    }
+
     await KitItem.updateMany(
-      { category: 'General', stock: { $gt: 0 } },
+      generalQuery,
       { $inc: { stock: -1 } }
     );
 
