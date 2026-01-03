@@ -2,29 +2,29 @@ import { NextResponse } from 'next/server';
 
 export function middleware(request) {
   const path = request.nextUrl.pathname;
-  
-  // ১. পাবলিক পাথ (যেখানে লগইন ছাড়াই যাওয়া যাবে)
-  // লোগো বা স্ট্যাটিক ফাইলের জন্য পাবলিক ফোল্ডারও এর মধ্যে ধরা ভালো
-  const isPublicPath = path === '/login' || path.startsWith('/api/login') || path.startsWith('/_next');
-  
-  // ২. কুকি চেক করা
-  const token = request.cookies.get('app_role')?.value;
 
-  // ৩. লজিক: যদি কুকি না থাকে এবং ইউজার পাবলিক পেজে না থাকে -> লগইন পেজে পাঠাও
-  if (!token && !isPublicPath) {
+  // ✅ নতুন কোড: যদি পাথ '/install' হয়, তাহলে সব চেক বাদ দিয়ে পেজ ওপেন করতে দাও
+  if (path === '/install') {
+    return NextResponse.next();
+  }
+
+  // --- তোমার আগের লজিক (উদাহরণস্বরূপ) ---
+  const token = request.cookies.get('app_role')?.value; // বা তোমার কুকির নাম
+
+  // যদি টোকেন না থাকে এবং ইউজার লগইন পেজে না থাকে, তবে লগইনে পাঠাও
+  if (!token && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // ৪. লজিক: যদি কুকি থাকে এবং ইউজার লগইন পেজে যেতে চায় -> হোমে পাঠাও
+  // যদি টোকেন থাকে কিন্তু ইউজার লগইন পেজে থাকে, তবে হোমে পাঠাও
   if (token && path === '/login') {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // সব ঠিক থাকলে রিকোয়েস্ট চালিয়ে যাও
   return NextResponse.next();
 }
 
-// কোন কোন পাথে মিডলওয়্যার কাজ করবে
+// কনফিগারেশন যেমন আছে তেমনই রাখতে পারো, অথবা '/install' কে matcher এ রাখতে পারো
 export const config = {
   matcher: [
     /*
