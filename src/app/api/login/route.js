@@ -25,7 +25,7 @@ export async function POST(request) {
     httpOnly: false, // ক্লায়েন্ট সাইডে রিড করার জন্য false রাখলাম (সিম্পলিসিটির জন্য)
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 // 1 day
+    maxAge: 60 * 60 * 24 * 10 // 1 day
   });
 
   return response;
