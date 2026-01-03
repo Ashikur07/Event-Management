@@ -15,15 +15,18 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
+  // আইকন ম্যাপিং আপডেট
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
     if (n.includes('pen')) return '🖊️';
-    if (n.includes('shirt') || n.includes('tshirt')) return '👕';
+    if (n.includes('polo') || n.includes('tshirt') || n.includes('shirt')) return '👕';
+    if (n.includes('jersey') || n.includes('fabric')) return '🎽';
     if (n.includes('mug') || n.includes('cup')) return '☕';
     if (n.includes('cap') || n.includes('hat')) return '🧢';
-    if (n.includes('badge') || n.includes('id')) return '🪪';
+    if (n.includes('badge') || n.includes('id') || n.includes('card')) return '🪪';
     if (n.includes('food') || n.includes('box')) return '🍱';
+    if (n.includes('souvenir') || n.includes('book')) return '📔';
     return '📦'; 
   };
 
@@ -58,24 +61,23 @@ export default function HistoryPage() {
   return (
     <MobileLayout title="History Log">
       
-      {/* 1. Overview Cards (Only show for Distributed Tab) */}
+      {/* 1. Summary Cards (Only for Distributed Tab) */}
       {activeTab === 'distributed' && (
         <div className="mb-6 animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Summary</h3>
+            <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Current Status</h3>
             
-            {/* Grid Layout Update: 2 columns gap fix */}
             <div className="grid grid-cols-2 gap-3">
                 
-                {/* T-Shirt Card (Special) */}
+                {/* Special Card for Polo/Jersey Size Stats */}
                 <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
                     <div className="text-3xl mb-1">👕</div>
-                    <h4 className="font-bold text-gray-800 text-sm">T-Shirt Sent</h4>
-                    <p className="text-xl font-extrabold text-indigo-600">{historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">pcs</span></p>
+                    <h4 className="font-bold text-gray-800 text-sm">Polo & Jersey</h4>
+                    <p className="text-xl font-extrabold text-indigo-600">{historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span></p>
                     
-                    {/* Hover Effect Details */}
+                    {/* Hover Details for Sizes */}
                     <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
-                        <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Count</p>
-                        <div className="grid grid-cols-3 gap-x-3 gap-y-1 text-[10px] font-mono">
+                        <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
                             {Object.entries(historyData.stats.sizes || {}).map(([size, count]) => (
                                 <span key={size}>{size}: {count}</span>
                             ))}
@@ -83,11 +85,11 @@ export default function HistoryPage() {
                     </div>
                 </div>
 
-                {/* Other Items Loop (Removed .slice to show ALL items) */}
+                {/* Other General Items Loop */}
                 {items.filter(i => i.category === 'General').map((item) => (
                     <div key={item._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all">
                         <div className="text-3xl mb-1">{getIcon(item.name)}</div>
-                        <h4 className="font-bold text-gray-800 text-sm truncate w-full">{item.name}</h4>
+                        <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
                         <p className="text-xl font-extrabold text-indigo-600">
                             {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sent</span>
                         </p>
@@ -97,13 +99,12 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* 2. Main List Area */}
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[600px] relative flex flex-col">
+      {/* 2. Student List Area */}
+      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[500px] relative flex flex-col">
         
-        {/* Header: Tabs & Search */}
+        {/* Header */}
         <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem]">
-            
-            {/* TABS */}
+            {/* Tabs */}
             <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
                 <button 
                     onClick={() => { setActiveTab('distributed'); setPage(1); }}
@@ -132,7 +133,7 @@ export default function HistoryPage() {
             </div>
         </div>
 
-        {/* List Items */}
+        {/* List */}
         <div className="p-2 space-y-2 pb-20 flex-1">
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
@@ -148,12 +149,9 @@ export default function HistoryPage() {
                     >
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
-                                {/* Avatar */}
                                 <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${activeTab === 'distributed' ? 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white' : 'bg-red-50 text-red-500 group-hover:bg-red-500 group-hover:text-white'}`}>
                                     {record.name.charAt(0)}
                                 </div>
-                                
-                                {/* Name, Roll, Session */}
                                 <div>
                                     <h4 className="font-bold text-gray-800 text-sm leading-tight">{record.name}</h4>
                                     <div className="flex items-center gap-2 mt-1.5">
@@ -166,8 +164,6 @@ export default function HistoryPage() {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Arrow */}
                             <div className="text-right">
                                 <svg className="w-5 h-5 text-gray-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </div>
@@ -205,28 +201,20 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* --- DETAILS MODAL --- */}
+      {/* --- STUDENT DETAILS MODAL --- */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div 
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={() => setSelectedStudent(null)}
-            ></div>
-
-            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl transform transition-all scale-100 relative z-10">
-                
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudent(null)}></div>
+            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
                 <div className={`${selectedStudent.isUsed ? 'bg-indigo-600' : 'bg-red-500'} p-6 text-white text-center relative`}>
-                    <button 
-                        onClick={() => setSelectedStudent(null)}
-                        className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1 transition"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button onClick={() => setSelectedStudent(null)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 rounded-full p-1">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                     <div className={`w-16 h-16 bg-white ${selectedStudent.isUsed ? 'text-indigo-600' : 'text-red-500'} rounded-full mx-auto flex items-center justify-center text-3xl font-bold mb-3 shadow-lg`}>
                         {selectedStudent.name.charAt(0)}
                     </div>
                     <h2 className="text-xl font-bold">{selectedStudent.name}</h2>
-                    <p className="text-white/80 text-sm">{selectedStudent.email}</p>
+                    <p className="text-white/80 text-sm opacity-90">{selectedStudent.email || 'No Email'}</p>
                 </div>
 
                 <div className="p-6 space-y-4">
@@ -250,27 +238,15 @@ export default function HistoryPage() {
                             </div>
                         </div>
                         <div className="text-right">
-                             <p className="text-xs text-gray-400 mb-1">Ticket No</p>
-                             <span className="bg-white text-gray-700 px-2 py-1 rounded border border-gray-200 font-mono font-bold text-sm">
-                                {selectedStudent.ticketNumber}
-                             </span>
+                             {selectedStudent.isUsed ? (
+                                <span className="text-green-600 font-bold text-xs uppercase bg-green-100 px-2 py-1 rounded">Received</span>
+                             ) : (
+                                <span className="text-red-500 font-bold text-xs uppercase bg-red-100 px-2 py-1 rounded">Pending</span>
+                             )}
                         </div>
                     </div>
 
                     <div className="border-t border-gray-100 pt-4 mt-2">
-                         <div className="flex justify-between items-center text-sm">
-                            <span className="text-gray-500">Status</span>
-                            {selectedStudent.isUsed ? (
-                                <span className="text-green-600 font-bold flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full"></span> Distributed
-                                </span>
-                            ) : (
-                                <span className="text-red-500 font-bold flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-red-500 rounded-full"></span> Pending
-                                </span>
-                            )}
-                         </div>
-                         
                          {selectedStudent.isUsed && (
                              <div className="flex justify-between items-center text-sm mt-2">
                                 <span className="text-gray-500">Given At</span>
@@ -280,13 +256,6 @@ export default function HistoryPage() {
                              </div>
                          )}
                     </div>
-
-                    <button 
-                        onClick={() => setSelectedStudent(null)}
-                        className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition mt-2"
-                    >
-                        Close Details
-                    </button>
                 </div>
             </div>
         </div>
