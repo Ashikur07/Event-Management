@@ -8,8 +8,10 @@ export default function HomePage() {
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState({ totalDistributed: 0, totalStudents: 0, recentRecipients: [] });
   const [loading, setLoading] = useState(true);
+  
+  // মোডাল হ্যান্ডেল করার জন্য স্টেট
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  // ডাইনামিক আইকন ফাংশন (আপডেটেড)
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
@@ -47,14 +49,11 @@ export default function HomePage() {
     fetchData();
   }, []);
 
-  // স্টক কাউন্ট ফাংশন (SizeStock থাকলে সব যোগ করবে)
   const getStockCount = (item) => {
     if (item.category === 'General') return item.stock || 0;
-    // Sized আইটেমের জন্য সব সাইজের স্টক যোগফল
     return Object.values(item.sizeStock || {}).reduce((a, b) => a + b, 0);
   };
 
-   // পার্সেন্টেজ হিসাব
    const progress = stats.totalStudents > 0 
    ? Math.round((stats.totalDistributed / stats.totalStudents) * 100) 
    : 0;
@@ -69,7 +68,6 @@ export default function HomePage() {
             <p className="text-indigo-200 text-sm font-medium mb-1">Total Distributed</p>
             <h1 className="text-4xl font-bold">{stats.totalDistributed} <span className="text-lg text-indigo-300 font-normal">/ {stats.totalStudents}</span></h1>
             
-            {/* Progress Bar */}
             <div className="mt-4 bg-indigo-900/50 h-2 rounded-full overflow-hidden w-48">
                 <div className="bg-green-400 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }}></div>
             </div>
@@ -82,8 +80,6 @@ export default function HomePage() {
              </div>
           </div>
         </div>
-        
-        {/* Decorative Circle */}
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-2xl"></div>
       </div>
 
@@ -99,19 +95,36 @@ export default function HomePage() {
             {items.map((item) => {
                 const stock = getStockCount(item);
                 const isLow = stock < 20;
+                const isSized = item.category === 'Sized';
 
                 return (
-                <div key={item._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:border-indigo-100 transition-all hover:shadow-md">
+                <div 
+                    key={item._id} 
+                    // শুধুমাত্র Sized আইটেমে ক্লিক করলে মোডাল ওপেন হবে
+                    onClick={() => isSized && setSelectedItem(item)}
+                    className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center transition-all hover:shadow-md relative group
+                        ${isSized ? 'cursor-pointer hover:border-indigo-300 active:scale-95' : ''}
+                    `}
+                >
+                    {/* Sized আইটেমের জন্য ইন্ডিকেটর */}
+                    {isSized && (
+                        <div className="absolute top-2 right-2 text-indigo-200 group-hover:text-indigo-500 transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                    )}
+
                     <div className="text-3xl mb-2">{getIcon(item.name)}</div>
                     <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
                     <p className={`text-xl font-extrabold mt-1 ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
-                    {stock} <span className="text-[10px] text-gray-400 font-normal">pcs</span>
+                        {stock} <span className="text-[10px] text-gray-400 font-normal">pcs</span>
                     </p>
+                    
+                    {/* Sized হলে নিচে ছোট্ট টেক্সট */}
+                    {isSized && <p className="text-[10px] text-gray-400 mt-1">Tap for sizes</p>}
                 </div>
                 );
             })}
             
-            {/* Add Item Button */}
             <Link href="/kits/inventory" className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-4 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all active:scale-95">
                 <span className="text-2xl">+</span>
                 <span className="text-xs font-bold mt-1">Add Item</span>
@@ -124,7 +137,6 @@ export default function HomePage() {
       <h3 className="text-gray-700 font-bold text-sm mb-4 px-1">Quick Actions</h3>
       <div className="space-y-4 mb-20">
         
-        {/* Update Inventory */}
         <Link href="/kits/inventory" className="block group">
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between active:scale-95 transition-transform group-hover:border-purple-300 group-hover:shadow-md">
             <div className="flex items-center gap-4">
@@ -134,14 +146,12 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500">Edit stock numbers manually</p>
               </div>
             </div>
-            {/* Arrow with Hover Effect */}
             <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 transition-all duration-300 group-hover:bg-purple-600 group-hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
           </div>
         </Link>
 
-        {/* Start Distribution */}
         <Link href="/kits/distribute" className="block group">
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between active:scale-95 transition-transform group-hover:border-green-300 group-hover:shadow-md">
             <div className="flex items-center gap-4">
@@ -151,14 +161,12 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500">Handout kits to members</p>
               </div>
             </div>
-            {/* Arrow with Hover Effect */}
             <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 transition-all duration-300 group-hover:bg-green-600 group-hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
           </div>
         </Link>
 
-        {/* Distribution History */}
         <Link href="/kits/history" className="block group">
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between active:scale-95 transition-transform group-hover:border-blue-300 group-hover:shadow-md">
             <div className="flex items-center gap-4">
@@ -168,14 +176,56 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500">See who received kits</p>
               </div>
             </div>
-            {/* Arrow with Hover Effect */}
             <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
           </div>
         </Link>
-
       </div>
+
+      {/* --- STOCK DETAILS MODAL --- */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setSelectedItem(null)}></div>
+            
+            <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="bg-indigo-600 p-6 text-white text-center relative">
+                    <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 rounded-full p-1 transition-colors">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                    <div className="w-16 h-16 bg-white text-indigo-600 rounded-full mx-auto flex items-center justify-center text-3xl shadow-lg mb-3">
+                        {getIcon(selectedItem.name)}
+                    </div>
+                    <h2 className="text-xl font-bold">{selectedItem.name}</h2>
+                    <p className="text-indigo-200 text-sm">Stock Breakdown</p>
+                </div>
+
+                {/* Body: Size Grid */}
+                <div className="p-6">
+                    <div className="grid grid-cols-2 gap-3">
+                        {Object.entries(selectedItem.sizeStock || {}).map(([size, count]) => (
+                            <div key={size} className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center">
+                                <span className="font-bold text-gray-500 text-sm">Size {size}</span>
+                                <span className={`font-mono font-bold text-lg ${count < 10 ? 'text-red-500' : 'text-gray-800'}`}>
+                                    {count}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
+                        <span className="text-gray-500 font-medium">Total Stock</span>
+                        <span className="text-2xl font-bold text-indigo-600">{getStockCount(selectedItem)}</span>
+                    </div>
+
+                    <button onClick={() => setSelectedItem(null)} className="w-full mt-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
     </MobileLayout>
   );
