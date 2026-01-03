@@ -121,7 +121,7 @@ export default function DistributePage() {
   };
 
   return (
-    <MobileLayout title="distribute" showBack={true} backUrl="/distribute">
+    <MobileLayout >
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10 px-4">
       <h1 className="text-3xl font-bold text-gray-800 mb-8">
         📦 Kit Distribution Point
