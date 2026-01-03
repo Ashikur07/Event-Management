@@ -3,7 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 export default function DistributePage() {
-  const [inputRoll, setInputRoll] = useState(''); // inputTicket -> inputRoll
+  // সব ভেরিয়েবল নাম Ticket রাখলাম UI এর সাথে মিল রাখার জন্য
+  const [inputTicket, setInputTicket] = useState(''); 
   const [ticketData, setTicketData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -13,16 +14,15 @@ export default function DistributePage() {
   
   const inputRef = useRef(null);
 
-  // অটো ফোকাস
   useEffect(() => {
     if (!showScanner && !isModalOpen) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [ticketData, isModalOpen, showScanner]);
 
-  // ১. রোল নম্বর চেক API Call
-  const checkRoll = async (rollNumber) => {
-    if (!rollNumber) return;
+  // API কল: এখানে ticketNumber নামেই পাঠাবো
+  const checkTicket = async (ticketVal) => {
+    if (!ticketVal) return;
 
     setLoading(true);
     setError('');
@@ -31,19 +31,19 @@ export default function DistributePage() {
     setShowScanner(false);
 
     try {
-      // API তে roll পাঠানো হচ্ছে
-      const res = await fetch(`/api/distribute?roll=${rollNumber}`);
+      // API তে ticketNumber হিসেবেই পাঠাচ্ছি (API সেটা roll হিসেবে ধরবে)
+      const res = await fetch(`/api/distribute?ticketNumber=${ticketVal}`);
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error);
 
       setTicketData(data);
-      setInputRoll(rollNumber);
+      setInputTicket(ticketVal);
       setIsModalOpen(true);
     } catch (err) {
       setError(err.message);
       setTimeout(() => {
-        setInputRoll('');
+        setInputTicket('');
         inputRef.current?.focus();
       }, 2000);
     } finally {
@@ -53,35 +53,34 @@ export default function DistributePage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    checkRoll(inputRoll);
+    checkTicket(inputTicket);
   };
 
-  // ২. স্ক্যান হ্যান্ডলার
   const handleScan = (result) => {
     if (result) {
       const rawValue = result[0]?.rawValue;
       if (rawValue) {
-        checkRoll(rawValue);
+        checkTicket(rawValue);
       }
     }
   };
 
-  // ৩. ডিস্ট্রিবিউশন কনফার্ম
   const confirmDistribute = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/distribute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roll: ticketData.roll }), // roll পাঠানো হচ্ছে
+        // আমরা লজিক্যালি roll বা ticket যেটাই পাঠাই, API সেটা roll কলামে চেক করবে
+        body: JSON.stringify({ ticketNumber: ticketData.roll }), 
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error);
 
-      setSuccessMsg(`🎉 ${ticketData.name}-কে কিট দেওয়া সম্পন্ন হয়েছে!`);
+      setSuccessMsg(`🎉 Kit successfully given to ${ticketData.name}!`);
       setIsModalOpen(false); 
-      setInputRoll('');
+      setInputTicket('');
       setTicketData(null);
       
       setTimeout(() => setSuccessMsg(''), 3000);
@@ -95,14 +94,14 @@ export default function DistributePage() {
 
   const handleCancel = () => {
     setIsModalOpen(false);
-    setInputRoll('');
+    setInputTicket('');
   };
 
-  // Alumni টাইপ শর্ট করার লজিক
+  // Alumni লজিক (Display purpose)
   const getParticipantBadge = (type) => {
     if (!type) return 'Guest';
     if (type === 'Current Student') return 'Current Student';
-    if (type.includes('Alumni')) return 'Alumni'; // সব Alumni-কে এক দেখাবে
+    if (type.includes('Alumni')) return 'Alumni'; 
     return type;
   };
 
@@ -139,11 +138,12 @@ export default function DistributePage() {
               onClick={() => setShowScanner(true)}
               className="bg-gray-800 text-white w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-900 transition mb-4 shadow-md"
             >
-              📷 Scan QR Code
+              📷 Scan Ticket QR
             </button>
             <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-gray-300"></div>
-                <span className="flex-shrink mx-4 text-gray-400 text-sm">OR TYPE ROLL</span>
+                {/* UI-তে Ticket লেখা শো করবে */}
+                <span className="flex-shrink mx-4 text-gray-400 text-sm">OR TYPE TICKET NO</span>
                 <div className="flex-grow border-t border-gray-300"></div>
             </div>
           </div>
@@ -154,9 +154,10 @@ export default function DistributePage() {
           <input
             ref={inputRef}
             type="text"
-            value={inputRoll}
-            onChange={(e) => setInputRoll(e.target.value)}
-            placeholder="ENTER ROLL NO"
+            value={inputTicket}
+            onChange={(e) => setInputTicket(e.target.value)}
+            // Placeholder ও Ticket রিলেটেড
+            placeholder="ENTER TICKET NO"
             className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-400 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg focus:border-indigo-500 focus:bg-white focus:ring-0 outline-none text-center tracking-widest font-mono uppercase transition-all"
           />
           <button 
@@ -186,13 +187,11 @@ export default function DistributePage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100">
             
-            {/* Header: Ticket Number Removed, Participant Type Added */}
             <div className={`p-6 text-center ${ticketData.isUsed ? 'bg-red-50' : 'bg-indigo-50'}`}>
               <h2 className={`text-2xl font-bold ${ticketData.isUsed ? 'text-red-600' : 'text-indigo-800'}`}>
-                {ticketData.isUsed ? '⚠️ Already Distributed!' : 'Student Details Found'}
+                {ticketData.isUsed ? '⚠️ Already Distributed!' : 'Ticket Verified'}
               </h2>
               
-              {/* Participant Type Badge */}
               <div className="mt-3">
                 <span className={`px-4 py-1.5 rounded-full font-bold text-sm tracking-wide border shadow-sm
                   ${getParticipantBadge(ticketData.participantType) === 'Alumni' 
@@ -210,7 +209,8 @@ export default function DistributePage() {
                 <span className="font-bold text-gray-800 text-lg">{ticketData.name}</span>
               </div>
               <div className="flex justify-between border-b border-gray-100 pb-2">
-                <span className="text-gray-500 font-medium">Roll No</span>
+                <span className="text-gray-500 font-medium">Ticket / Roll</span>
+                {/* এখানে আমরা roll শো করছি কিন্তু লেবেল Ticket রাখছি বা চাইলে শুধু ভ্যালু দেখাতে পারি */}
                 <span className="font-mono font-bold text-gray-800">{ticketData.roll}</span>
               </div>
               <div className="flex justify-between border-b border-gray-100 pb-2">
