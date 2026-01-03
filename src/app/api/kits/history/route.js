@@ -15,25 +15,30 @@ export async function GET(req) {
   const page = parseInt(searchParams.get('page')) || 1;
   const limit = parseInt(searchParams.get('limit')) || 15;
   const search = searchParams.get('search') || '';
-  const filter = searchParams.get('filter') || 'distributed'; 
+  const filter = searchParams.get('filter') || 'distributed';
+  const session = searchParams.get('session') || ''; // ⭐ নতুন প্যারামিটার
 
   try {
     const query = {};
     
-    // ⭐ ফিক্স: পেন্ডিং ডাটা ঠিকমতো আসার জন্য লজিক আপডেট
+    // ১. স্ট্যাটাস ফিল্টার
     if (filter === 'pending') {
-        // isUsed: false অথবা ফিল্ড নেই - দুটোই পেন্ডিং হিসেবে ধরবে
         query.isUsed = { $ne: true }; 
     } else {
         query.isUsed = true;
     }
 
-    // সার্চ লজিক
+    // ⭐ ২. সেশন ফিল্টার (যদি সিলেক্ট করা থাকে)
+    if (session) {
+        query.session = session;
+    }
+
+    // ৩. সার্চ লজিক
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { roll: { $regex: search, $options: 'i' } },
-        { session: { $regex: search, $options: 'i' } }
+        // সার্চের সময়ও সেশন চেক করা যেতে পারে, তবে উপরের সেশন ফিল্টারটাই মেইন
       ];
     }
 
@@ -47,12 +52,11 @@ export async function GET(req) {
     
     const totalDocs = await Ticket.countDocuments(query);
 
-    // স্ট্যাটাস কাউন্ট
+    // স্ট্যাটাস কাউন্ট (গ্লোবাল)
     const totalDistributed = await Ticket.countDocuments({ isUsed: true });
-    // isUsed: { $ne: true } ব্যবহার করছি সঠিক পেন্ডিং কাউন্টের জন্য
     const totalPending = await Ticket.countDocuments({ isUsed: { $ne: true } }); 
     
-    // সাইজ ব্রেকডাউন (শুধুমাত্র যারা নিয়েছে তাদের)
+    // সাইজ ব্রেকডাউন
     const sizeStats = await Ticket.aggregate([
       { $match: { isUsed: true } },
       { $group: { _id: '$tShirtSize', count: { $sum: 1 } } }
