@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth'; // ইম্পোর্ট করো
+import { verifyToken } from '@/lib/auth'; 
 
 export async function middleware(request) {
   const path = request.nextUrl.pathname;
 
-  // ১. ইন্সটল পেজ বা পাবলিক পেজ হলে ছেড়ে দাও
+  // ১. ইন্সটল পেজ হলে ছেড়ে দাও
   if (path === '/install') {
     return NextResponse.next();
   }
@@ -12,7 +12,7 @@ export async function middleware(request) {
   // ২. কুকি থেকে টোকেন নাও
   const token = request.cookies.get('session_token')?.value;
 
-  // ৩. টোকেন ভেরিফাই করো (এখানেই আসল ম্যাজিক)
+  // ৩. টোকেন ভেরিফাই করো
   // যদি পাসওয়ার্ড চেঞ্জ হয়ে থাকে, তাহলে verifyToken 'null' রিটার্ন করবে
   const payload = token ? await verifyToken(token) : null;
 
@@ -42,6 +42,18 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * * 👇 PWA Files Excluded Here:
+     * - manifest.json (Manifest file)
+     * - sw.js (Service Worker)
+     * - workbox- (Workbox scripts)
+     * - icons/ (Your icon folder)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-|icons/).*)',
   ],
 };
