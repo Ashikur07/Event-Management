@@ -22,7 +22,7 @@ export default function InventoryPage() {
   // --- ACCESS CONTROL (Viewer Block) ---
   if (canDistribute === false) {
     return (
-      <MobileLayout title="Restricted" showBack={true} backUrl="/">
+      <MobileLayout title="Restricted">
         <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 text-gray-400">
           <div className="text-6xl mb-4 bg-gray-100 p-6 rounded-full">🔒</div>
           <h2 className="text-xl font-bold text-gray-600 mb-2">Access Denied</h2>
