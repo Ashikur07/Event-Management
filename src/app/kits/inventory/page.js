@@ -19,6 +19,7 @@ export default function InventoryPage() {
     icon: "📦",
   });
 
+  
   // --- ACCESS CONTROL (Viewer Block) ---
   if (canDistribute === false) {
     return (

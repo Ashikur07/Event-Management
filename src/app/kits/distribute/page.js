@@ -7,6 +7,19 @@ import MobileLayout from "@/components/MobileLayout";
 export default function DistributePage() {
   const { canDistribute } = useRole();
 
+ 
+
+  // সব ভেরিয়েবল নাম Ticket রাখলাম UI এর সাথে মিল রাখার জন্য
+  const [inputTicket, setInputTicket] = useState("");
+  const [ticketData, setTicketData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+
+  const inputRef = useRef(null);
+
   if (canDistribute === false) {
     // Viewer হলে
     return (
@@ -19,17 +32,6 @@ export default function DistributePage() {
       </MobileLayout>
     );
   }
-
-  // সব ভেরিয়েবল নাম Ticket রাখলাম UI এর সাথে মিল রাখার জন্য
-  const [inputTicket, setInputTicket] = useState("");
-  const [ticketData, setTicketData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-
-  const inputRef = useRef(null);
 
   useEffect(() => {
     if (!showScanner && !isModalOpen) {
