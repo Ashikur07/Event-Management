@@ -15,7 +15,7 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  // আইকন ম্যাপিং আপডেট
+  // আইকন ম্যাপিং
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
@@ -36,6 +36,7 @@ export default function HistoryPage() {
       try {
         const [itemsRes, historyRes] = await Promise.all([
            fetch('/api/kits/items'), 
+           // API কল করার সময় সঠিক ফিল্টার যাচ্ছে
            fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}`) 
         ]);
 
@@ -61,40 +62,42 @@ export default function HistoryPage() {
   return (
     <MobileLayout title="History Log">
       
-      {/* 1. Summary Cards (Only for Distributed Tab) */}
+      {/* 1. Summary Cards (Only show for Distributed Tab) */}
       {activeTab === 'distributed' && (
         <div className="mb-6 animate-in fade-in slide-in-from-top-4">
-            <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Current Status</h3>
+            <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Distributed Items</h3>
             
             <div className="grid grid-cols-2 gap-3">
                 
-                {/* Special Card for Polo/Jersey Size Stats */}
-                <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="text-3xl mb-1">👕</div>
-                    <h4 className="font-bold text-gray-800 text-sm">Polo & Jersey</h4>
-                    <p className="text-xl font-extrabold text-indigo-600">{historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span></p>
+                {/* ⭐ ফিক্স: এখানে আমরা সব আইটেম লুপ করছি।
+                   Sized আইটেম (Polo, Jersey) এবং General আইটেম সব আলাদা কার্ডে দেখাবে।
+                */}
+                {items.map((item) => {
+                    const isSized = item.category === 'Sized';
                     
-                    {/* Hover Details for Sizes */}
-                    <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
-                        <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
-                            {Object.entries(historyData.stats.sizes || {}).map(([size, count]) => (
-                                <span key={size}>{size}: {count}</span>
-                            ))}
+                    return (
+                        <div key={item._id} className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="text-3xl mb-1">{getIcon(item.name)}</div>
+                            <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
+                            <p className="text-xl font-extrabold text-indigo-600">
+                                {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span>
+                            </p>
+                            
+                            {/* যদি Sized আইটেম হয় (Polo/Jersey), তবে হোভারে সাইজ দেখাবে */}
+                            {isSized && (
+                                <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
+                                    <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono">
+                                        {Object.entries(historyData.stats.sizes || {}).map(([size, count]) => (
+                                            <span key={size}>{size}: {count}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                </div>
+                    );
+                })}
 
-                {/* Other General Items Loop */}
-                {items.filter(i => i.category === 'General').map((item) => (
-                    <div key={item._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all">
-                        <div className="text-3xl mb-1">{getIcon(item.name)}</div>
-                        <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
-                        <p className="text-xl font-extrabold text-indigo-600">
-                            {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sent</span>
-                        </p>
-                    </div>
-                ))}
             </div>
         </div>
       )}
@@ -102,9 +105,10 @@ export default function HistoryPage() {
       {/* 2. Student List Area */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[500px] relative flex flex-col">
         
-        {/* Header */}
+        {/* Header: Tabs & Search */}
         <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem]">
-            {/* Tabs */}
+            
+            {/* TABS */}
             <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
                 <button 
                     onClick={() => { setActiveTab('distributed'); setPage(1); }}
@@ -133,7 +137,7 @@ export default function HistoryPage() {
             </div>
         </div>
 
-        {/* List */}
+        {/* List Items */}
         <div className="p-2 space-y-2 pb-20 flex-1">
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
