@@ -10,16 +10,17 @@ export default function InventoryPage() {
   const [showModal, setShowModal] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', category: 'General', icon: '📦' });
 
-  // ডাইনামিক আইকন ফাংশন
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
     if (n.includes('pen')) return '🖊️';
-    if (n.includes('shirt') || n.includes('tshirt')) return '👕';
+    if (n.includes('shirt') || n.includes('tshirt') || n.includes('polo')) return '👕';
+    if (n.includes('jersey') || n.includes('fabric')) return '🎽';
     if (n.includes('mug') || n.includes('cup')) return '☕';
     if (n.includes('cap') || n.includes('hat')) return '🧢';
-    if (n.includes('book') || n.includes('magazine') || n.includes('souvenir') || n.includes('documentary')) return '📔';
+    if (n.includes('book') || n.includes('magazine') || n.includes('souvenir')) return '📔';
     if (n.includes('crest') || n.includes('gift') || n.includes('award')) return '🏆';
+    if (n.includes('id') || n.includes('card')) return '🪪';
     return '📦';
   };
 
@@ -54,7 +55,6 @@ export default function InventoryPage() {
     } catch (error) { console.error(error); }
   };
 
-  // ইনপুট হ্যান্ডেল করার ফাংশন
   const handleStockChange = async (id, newAmount, size = null) => {
     const updatedItems = items.map(item => {
         if (item._id === id) {
@@ -84,12 +84,11 @@ export default function InventoryPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, type, amount, size }),
         });
-        if (res.ok) fetchItems();
+        if (res.ok) fetchItems(); 
       } catch (error) { console.error(error); }
   };
 
   return (
-    // ফিক্স: এখানে শুধু একটাই MobileLayout থাকবে
     <MobileLayout title="Inventory" showBack={true} backUrl="/kits">
       
       <div className="flex justify-between items-center mb-6">
@@ -127,7 +126,8 @@ export default function InventoryPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  {['M', 'L', 'XL', 'XXL'].map((size) => (
+                  {/* Updated Sizes: S to XXXL */}
+                  {['S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map((size) => (
                     <div key={size} className="bg-gray-50 p-2 rounded-lg flex flex-col items-center">
                       <span className="text-xs font-bold text-gray-400 mb-1">Size {size}</span>
                       <div className="flex items-center gap-1">
@@ -151,7 +151,7 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal code remains same... */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 animate-slide-up shadow-2xl">
