@@ -6,10 +6,9 @@ import Swal from "sweetalert2";
 import { useRole } from "@/hooks/useRole";
 
 export default function InventoryPage() {
-  // canDistribute = Admin + Moderator (এরা পেজ দেখতে পাবে)
-  // isAdmin = Only Admin (এরা স্টক এডিট করতে পারবে)
   const { isAdmin, canDistribute } = useRole();
   
+  // ১. সব Hooks (useState) উপরে থাকবে
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -19,20 +18,7 @@ export default function InventoryPage() {
     icon: "📦",
   });
 
-  
-  // --- ACCESS CONTROL (Viewer Block) ---
-  if (canDistribute === false) {
-    return (
-      <MobileLayout title="Restricted">
-        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 text-gray-400">
-          <div className="text-6xl mb-4 bg-gray-100 p-6 rounded-full">🔒</div>
-          <h2 className="text-xl font-bold text-gray-600 mb-2">Access Denied</h2>
-          <p className="text-sm">Inventory data is restricted to authorized personnel only.</p>
-        </div>
-      </MobileLayout>
-    );
-  }
-
+  // ফাংশনগুলো হুকের মতো ব্যবহার না করলেও উপরে ডিফাইন করা ভালো
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes("bag")) return "🎒";
@@ -62,9 +48,15 @@ export default function InventoryPage() {
     }
   };
 
+  // ২. useEffect অবশ্যই return এর উপরে থাকতে হবে
   useEffect(() => {
-    fetchItems();
-  }, []);
+    // যদি এক্সেস থাকে তবেই ফেচ করবে, নাহলে এরর এড়াতে শুধু লোডিং বন্ধ
+    if (canDistribute) {
+        fetchItems();
+    } else {
+        setLoading(false);
+    }
+  }, [canDistribute]); // canDistribute ডিপেন্ডেন্সি হিসেবে দিলাম
 
   const handleAddItem = async (e) => {
     e.preventDefault();
@@ -91,7 +83,7 @@ export default function InventoryPage() {
   };
 
   const handleStockChange = async (id, newAmount, size = null) => {
-    if (!isAdmin) return; // এক্সট্রা সিকিউরিটি
+    if (!isAdmin) return;
     const updatedItems = items.map((item) => {
       if (item._id === id) {
         if (item.category === "General") {
@@ -119,7 +111,7 @@ export default function InventoryPage() {
   };
 
   const updateStock = async (id, type, amount, size = null) => {
-    if (!isAdmin) return; // এক্সট্রা সিকিউরিটি
+    if (!isAdmin) return;
     try {
       const res = await fetch("/api/kits/items", {
         method: "PUT",
@@ -131,6 +123,19 @@ export default function InventoryPage() {
       console.error(error);
     }
   };
+
+  // ৩. এখন এক্সেস চেক করে Return করা যাবে (সব হুক ডিক্লেয়ার করার পর)
+  if (canDistribute === false) {
+    return (
+      <MobileLayout title="Restricted">
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 text-gray-400">
+          <div className="text-6xl mb-4 bg-gray-100 p-6 rounded-full">🔒</div>
+          <h2 className="text-xl font-bold text-gray-600 mb-2">Access Denied</h2>
+          <p className="text-sm">Inventory data is restricted to authorized personnel only.</p>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout title="Inventory" showBack={true} backUrl="/kits">
@@ -213,7 +218,6 @@ export default function InventoryPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  {/* Updated Sizes: S to XXXL */}
                   {["S", "M", "L", "XL", "XXL", "XXXL"].map((size) => (
                     <div
                       key={size}

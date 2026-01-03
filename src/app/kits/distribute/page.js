@@ -7,9 +7,7 @@ import MobileLayout from "@/components/MobileLayout";
 export default function DistributePage() {
   const { canDistribute } = useRole();
 
- 
-
-  // সব ভেরিয়েবল নাম Ticket রাখলাম UI এর সাথে মিল রাখার জন্য
+  // ১. সব Hook (useState, useRef) সবার আগে ডিক্লেয়ার করতে হবে
   const [inputTicket, setInputTicket] = useState("");
   const [ticketData, setTicketData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,8 +18,15 @@ export default function DistributePage() {
 
   const inputRef = useRef(null);
 
+  // ২. useEffect অবশ্যই return এর উপরে থাকতে হবে
+  useEffect(() => {
+    if (!showScanner && !isModalOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [ticketData, isModalOpen, showScanner]);
+
+  // ৩. এখন এক্সেস চেক করে Return করা যাবে (হুক ডিক্লেয়ার করার পর)
   if (canDistribute === false) {
-    // Viewer হলে
     return (
       <MobileLayout title="Restricted">
         <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 text-gray-400">
@@ -33,13 +38,8 @@ export default function DistributePage() {
     );
   }
 
-  useEffect(() => {
-    if (!showScanner && !isModalOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [ticketData, isModalOpen, showScanner]);
+  // --- বাকি ফাংশনগুলো আগের মতোই থাকবে ---
 
-  // API কল: এখানে ticketNumber নামেই পাঠাবো
   const checkTicket = async (ticketVal) => {
     if (!ticketVal) return;
 
@@ -50,7 +50,6 @@ export default function DistributePage() {
     setShowScanner(false);
 
     try {
-      // API তে ticketNumber হিসেবেই পাঠাচ্ছি (API সেটা roll হিসেবে ধরবে)
       const res = await fetch(`/api/distribute?ticketNumber=${ticketVal}`);
       const data = await res.json();
 
@@ -90,7 +89,6 @@ export default function DistributePage() {
       const res = await fetch("/api/distribute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // আমরা লজিক্যালি roll বা ticket যেটাই পাঠাই, API সেটা roll কলামে চেক করবে
         body: JSON.stringify({ ticketNumber: ticketData.roll }),
       });
       const data = await res.json();
@@ -115,7 +113,6 @@ export default function DistributePage() {
     setInputTicket("");
   };
 
-  // Alumni লজিক (Display purpose)
   const getParticipantBadge = (type) => {
     if (!type) return "Guest";
     if (type === "Current Student") return "Current Student";
@@ -160,7 +157,6 @@ export default function DistributePage() {
             </button>
             <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-gray-300"></div>
-              {/* UI-তে Ticket লেখা শো করবে */}
               <span className="flex-shrink mx-4 text-gray-400 text-sm">
                 OR TYPE TICKET NO
               </span>
@@ -176,7 +172,6 @@ export default function DistributePage() {
             type="text"
             value={inputTicket}
             onChange={(e) => setInputTicket(e.target.value)}
-            // Placeholder ও Ticket রিলেটেড
             placeholder="ENTER TICKET NO"
             className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-400 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg focus:border-indigo-500 focus:bg-white focus:ring-0 outline-none text-center tracking-widest font-mono uppercase transition-all"
           />
@@ -244,7 +239,6 @@ export default function DistributePage() {
               </div>
               <div className="flex justify-between border-b border-gray-100 pb-2">
                 <span className="text-gray-500 font-medium">Ticket / Roll</span>
-                {/* এখানে আমরা roll শো করছি কিন্তু লেবেল Ticket রাখছি বা চাইলে শুধু ভ্যালু দেখাতে পারি */}
                 <span className="font-mono font-bold text-gray-800">
                   {ticketData.roll}
                 </span>
