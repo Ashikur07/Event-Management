@@ -10,28 +10,22 @@ const connectDB = async () => {
   await mongoose.connect(MONGODB_URI);
 };
 
-// 1. টিকেট চেক করা (GET Request)
+// 1. টিকেট চেক করা (GET)
 export async function GET(request) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
-    const ticketInput = searchParams.get('ticketNumber'); // UI থেকে Ticket নামেই আসছে
+    const ticketInput = searchParams.get('ticketNumber'); 
 
-    if (!ticketInput) {
-      return NextResponse.json({ error: 'Ticket number required' }, { status: 400 });
-    }
+    if (!ticketInput) return NextResponse.json({ error: 'Ticket number required' }, { status: 400 });
 
-    // roll দিয়ে ডাটা খুঁজছি এবং .lean() ব্যবহার করছি যাতে পেইন অবজেক্ট পাই
     const ticket = await Ticket.findOne({ roll: ticketInput }).lean();
 
-    if (!ticket) {
-      return NextResponse.json({ error: 'Ticket not found!' }, { status: 404 });
-    }
+    if (!ticket) return NextResponse.json({ error: 'Ticket not found!' }, { status: 404 });
 
-    // লজিক: যদি isUsed ফিল্ড না থাকে, তাহলে false ধরে রেসপন্স পাঠাবো
     const responseData = {
         ...ticket,
-        isUsed: ticket.isUsed === true // ফিল্ড না থাকলে false হবে
+        isUsed: ticket.isUsed === true 
     };
 
     return NextResponse.json(responseData);
@@ -40,43 +34,48 @@ export async function GET(request) {
   }
 }
 
-// 2. ডিস্ট্রিবিউশন কনফার্ম (POST Request)
+// 2. ডিস্ট্রিবিউশন কনফার্ম (POST)
 export async function POST(request) {
   try {
     await connectDB();
-    const { ticketNumber } = await request.json(); // এখানে ticketNumber মানে আসলে roll
+    const { ticketNumber } = await request.json(); 
 
     const ticket = await Ticket.findOne({ roll: ticketNumber });
     
     if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     
-    // ডাটাবেসে ফিল্ড না থাকলেও undefined মানে false, তাই এই চেক কাজ করবে
     if (ticket.isUsed) {
       return NextResponse.json({ error: 'This ticket has already been used!' }, { status: 400 });
     }
 
-    // --- ইনভেন্টরি আপডেট লজিক ---
+    // --- ইনভেন্টরি আপডেট লজিক (Updated for Multiple Sized Items) ---
     const tshirtSize = ticket.tShirtSize; 
     const sizeField = `sizeStock.${tshirtSize}`;
 
-    // ১. টি-শার্ট কমানো
-    const tshirtUpdate = await KitItem.updateOne(
-      { category: 'Sized', [sizeField]: { $gt: 0 } }, 
+    // ১. আগে চেক করি স্টক আছে কিনা (Polo বা Jersey যে কোনো একটা শেষ হলে এরর দিবে)
+    const lowStockItems = await KitItem.find({ 
+        category: 'Sized', 
+        [sizeField]: { $lte: 0 } // স্টক ০ বা তার কম
+    });
+
+    if (lowStockItems.length > 0) {
+        const names = lowStockItems.map(i => i.name).join(', ');
+        return NextResponse.json({ error: `Stock out for size ${tshirtSize} in: ${names}!` }, { status: 400 });
+    }
+
+    // ২. সব Sized আইটেম (Polo + Jersey) আপডেট (১ করে কমানো)
+    await KitItem.updateMany(
+      { category: 'Sized' }, 
       { $inc: { [sizeField]: -1 } }
     );
 
-    if (tshirtUpdate.modifiedCount === 0) {
-      return NextResponse.json({ error: `Stock out for size ${tshirtSize}!` }, { status: 400 });
-    }
-
-    // ২. সাধারণ আইটেম কমানো
+    // ৩. সব General আইটেম আপডেট (১ করে কমানো)
     await KitItem.updateMany(
       { category: 'General', stock: { $gt: 0 } },
       { $inc: { stock: -1 } }
     );
 
-    // --- ⭐ টিকেট স্ট্যাটাস আপডেট (নতুন ফিল্ড অ্যাড করা) ---
-    // আমরা updateOne এবং $set ব্যবহার করছি, এতে ফিল্ড না থাকলেও নতুন অ্যাড হয়ে যাবে
+    // --- টিকেট স্ট্যাটাস আপডেট ---
     await Ticket.updateOne(
         { roll: ticketNumber },
         { $set: { isUsed: true } }
