@@ -69,14 +69,14 @@ export default function HistoryPage() {
   const handleUndo = async () => {
     // ⭐ ওয়ার্নিং পপআপ
     const result = await Swal.fire({
-        title: 'নিশ্চিত তো?',
-        text: "এটি কিট স্ট্যাটাস 'Pending' করে দিবে এবং স্টক ফেরত আসবে!",
+        title: 'Are you sure?',
+        text: "This will revert the status to 'Pending' and return items to stock!",
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33', // লাল বাটন
+        confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'হ্যাঁ, ফেরত নাও!',
-        cancelButtonText: 'না'
+        confirmButtonText: 'Yes, return it!',
+        cancelButtonText: 'Cancel'
     });
 
     if (result.isConfirmed) {
@@ -93,7 +93,7 @@ export default function HistoryPage() {
                 Swal.fire({
                     icon: 'success',
                     title: 'Undo Successful!',
-                    text: 'কিট স্টকে ফেরত দেওয়া হয়েছে।',
+                    text: 'Kit returned to stock successfully.',
                     timer: 1500,
                     showConfirmButton: false
                 });
