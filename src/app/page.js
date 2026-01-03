@@ -9,16 +9,19 @@ export default function HomePage() {
   const [stats, setStats] = useState({ totalDistributed: 0, totalStudents: 0, recentRecipients: [] });
   const [loading, setLoading] = useState(true);
 
-  // ডাইনামিক আইকন ফাংশন
+  // ডাইনামিক আইকন ফাংশন (আপডেটেড)
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
     if (n.includes('pen')) return '🖊️';
-    if (n.includes('shirt') || n.includes('tshirt')) return '👕';
+    if (n.includes('shirt') || n.includes('tshirt') || n.includes('polo')) return '👕';
+    if (n.includes('jersey') || n.includes('fabric')) return '🎽';
     if (n.includes('mug') || n.includes('cup')) return '☕';
     if (n.includes('cap') || n.includes('hat')) return '🧢';
-    if (n.includes('badge') || n.includes('id')) return '🪪';
+    if (n.includes('badge') || n.includes('id') || n.includes('card')) return '🪪';
     if (n.includes('food') || n.includes('box')) return '🍱';
+    if (n.includes('souvenir') || n.includes('book')) return '📔';
+    if (n.includes('crest') || n.includes('gift') || n.includes('award')) return '🏆';
     return '📦'; 
   };
 
@@ -26,8 +29,8 @@ export default function HomePage() {
     const fetchData = async () => {
       try {
         const [itemsRes, statsRes] = await Promise.all([
-            fetch('/api/kits/items'),
-            fetch('/api/kits/stats')
+           fetch('/api/kits/items'),
+           fetch('/api/kits/stats')
         ]);
 
         const itemsData = await itemsRes.json();
@@ -44,8 +47,10 @@ export default function HomePage() {
     fetchData();
   }, []);
 
+  // স্টক কাউন্ট ফাংশন (SizeStock থাকলে সব যোগ করবে)
   const getStockCount = (item) => {
     if (item.category === 'General') return item.stock || 0;
+    // Sized আইটেমের জন্য সব সাইজের স্টক যোগফল
     return Object.values(item.sizeStock || {}).reduce((a, b) => a + b, 0);
   };
 
@@ -57,22 +62,22 @@ export default function HomePage() {
   return (
     <MobileLayout title="Kit Manager">
       
-       {/* 1. Header & Stats Card (NEW DESIGN) */}
-       <div className="bg-gradient-to-br from-indigo-900 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 mb-6 relative overflow-hidden">
+       {/* 1. Header & Stats Card */}
+       <div className="bg-gradient-to-br from-indigo-900 to-indigo-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 mb-6 relative overflow-hidden animate-in fade-in slide-in-from-top-4">
         <div className="relative z-10 flex justify-between items-end">
           <div>
             <p className="text-indigo-200 text-sm font-medium mb-1">Total Distributed</p>
             <h1 className="text-4xl font-bold">{stats.totalDistributed} <span className="text-lg text-indigo-300 font-normal">/ {stats.totalStudents}</span></h1>
             
             {/* Progress Bar */}
-            <div className="mt-4 w-full bg-indigo-900/50 h-2 rounded-full overflow-hidden w-48">
-                <div className="bg-green-400 h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+            <div className="mt-4 bg-indigo-900/50 h-2 rounded-full overflow-hidden w-48">
+                <div className="bg-green-400 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${progress}%` }}></div>
             </div>
             <p className="text-xs text-indigo-300 mt-1">{progress}% Completed</p>
           </div>
           
           <div className="text-right">
-             <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm">
+             <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-2xl backdrop-blur-sm animate-pulse">
                 📈
              </div>
           </div>
@@ -96,9 +101,9 @@ export default function HomePage() {
                 const isLow = stock < 20;
 
                 return (
-                <div key={item._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:border-indigo-100 transition-colors">
+                <div key={item._id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:border-indigo-100 transition-all hover:shadow-md">
                     <div className="text-3xl mb-2">{getIcon(item.name)}</div>
-                    <h4 className="font-bold text-gray-800 text-sm truncate w-full">{item.name}</h4>
+                    <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
                     <p className={`text-xl font-extrabold mt-1 ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
                     {stock} <span className="text-[10px] text-gray-400 font-normal">pcs</span>
                     </p>
@@ -107,7 +112,7 @@ export default function HomePage() {
             })}
             
             {/* Add Item Button */}
-            <Link href="/kits/inventory" className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-4 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all">
+            <Link href="/kits/inventory" className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-4 text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all active:scale-95">
                 <span className="text-2xl">+</span>
                 <span className="text-xs font-bold mt-1">Add Item</span>
             </Link>
@@ -175,6 +180,3 @@ export default function HomePage() {
     </MobileLayout>
   );
 }
-
-
-
