@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { useRole } from "@/hooks/useRole";
+import MobileLayout from "@/components/MobileLayout";
 
 export default function DistributePage() {
   const { canDistribute } = useRole();
