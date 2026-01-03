@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import MobileLayout from '@/components/MobileLayout';
+import Swal from 'sweetalert2'; // ⭐ SweetAlert2 ইম্পোর্ট
 
 export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState('distributed'); 
@@ -13,21 +14,21 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  
-  // ⭐ নতুন স্টেট: সেশন ফিল্টার
   const [selectedSession, setSelectedSession] = useState('');
+  
+  // Modal States
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isEditingSize, setIsEditingSize] = useState(false);
+  const [newSizeVal, setNewSizeVal] = useState('');
 
-  // ⭐ সেশন জেনারেটর ফাংশন (1998-99 থেকে 2024-25)
+  // সেশন জেনারেটর
   const sessions = [];
   for (let i = 1998; i <= 2024; i++) {
-    const nextYear = (i + 1).toString().slice(-2); // 1999 -> '99'
+    const nextYear = (i + 1).toString().slice(-2);
     sessions.push(`${i}-${nextYear}`);
   }
-  // উল্টো করে দেখালাম যাতে লেটেস্ট ব্যাচ আগে থাকে
   sessions.reverse(); 
 
-  // আইকন ম্যাপিং
   const getIcon = (name) => {
     const n = name.toLowerCase();
     if (n.includes('bag')) return '🎒';
@@ -42,54 +43,125 @@ export default function HistoryPage() {
     return '📦'; 
   };
 
+  const fetchAll = async () => {
+    setLoading(true);
+    try {
+      const [itemsRes, historyRes] = await Promise.all([
+         fetch('/api/kits/items'), 
+         fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}&session=${selectedSession}`) 
+      ]);
+      const itemsData = await itemsRes.json();
+      const hData = await historyRes.json();
+      setItems(itemsData);
+      setHistoryData(hData);
+    } catch (error) { console.error(error); } 
+    finally { setLoading(false); }
+  };
+
   useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      try {
-        const [itemsRes, historyRes] = await Promise.all([
-           fetch('/api/kits/items'), 
-           // ⭐ API কলে session প্যারামিটার যুক্ত করা হলো
-           fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}&session=${selectedSession}`) 
-        ]);
-
-        const itemsData = await itemsRes.json();
-        const hData = await historyRes.json();
-
-        setItems(itemsData);
-        setHistoryData(hData);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const timer = setTimeout(() => {
-        fetchAll();
-    }, 300);
-
+    const timer = setTimeout(() => { fetchAll(); }, 300);
     return () => clearTimeout(timer);
-  }, [page, search, activeTab, selectedSession]); // selectedSession ডিপেন্ডেন্সি এড করা হলো
+  }, [page, search, activeTab, selectedSession]);
+
+  // --- ACTIONS ---
+
+  // ১. Undo Distribution (with SweetAlert2)
+  const handleUndo = async () => {
+    // ⭐ ওয়ার্নিং পপআপ
+    const result = await Swal.fire({
+        title: 'নিশ্চিত তো?',
+        text: "এটি কিট স্ট্যাটাস 'Pending' করে দিবে এবং স্টক ফেরত আসবে!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33', // লাল বাটন
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'হ্যাঁ, ফেরত নাও!',
+        cancelButtonText: 'না'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const res = await fetch('/api/kits/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'undo', id: selectedStudent._id })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // সাকসেস মেসেজ
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Undo Successful!',
+                    text: 'কিট স্টকে ফেরত দেওয়া হয়েছে।',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                setSelectedStudent(null);
+                fetchAll(); // ডাটা রিফ্রেশ
+            } else {
+                Swal.fire('Error', data.error, 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'Something went wrong!', 'error');
+        }
+    }
+  };
+
+  // ২. Update Size (with SweetAlert2)
+  const handleUpdateSize = async () => {
+    try {
+        const res = await fetch('/api/kits/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update_size', id: selectedStudent._id, newSize: newSizeVal })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            // UI তে লোডিং না দেখিয়ে সরাসরি আপডেট দেখানোর জন্য
+            setSelectedStudent(prev => ({ ...prev, tShirtSize: newSizeVal }));
+            setIsEditingSize(false);
+            
+            // সাকসেস টোস্ট
+            Swal.fire({ 
+                icon: 'success', 
+                title: 'Size Updated!', 
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 2000,
+                timerProgressBar: true
+            });
+            
+            fetchAll(); 
+        } else {
+            Swal.fire('Error', data.error, 'error');
+        }
+    } catch (error) { 
+        console.error(error);
+        Swal.fire('Error', 'Update failed!', 'error');
+    }
+  };
 
   return (
     <MobileLayout title="History Log">
       
-      {/* 1. Summary Cards (Distributed Tab) */}
+      {/* 1. Distributed Summary */}
       {activeTab === 'distributed' && (
         <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Distributed Items</h3>
-            
             <div className="grid grid-cols-2 gap-3">
                 {items.map((item) => {
                     const isSized = item.category === 'Sized';
                     return (
                         <div key={item._id} className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
                             <div className="text-3xl mb-1">{getIcon(item.name)}</div>
-                            <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1" title={item.name}>{item.name}</h4>
+                            <h4 className="font-bold text-gray-800 text-sm truncate w-full px-1">{item.name}</h4>
                             <p className="text-xl font-extrabold text-indigo-600">
                                 {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span>
                             </p>
-                            
                             {isSized && (
                                 <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
                                     <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
@@ -107,13 +179,9 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* 2. Student List Area */}
+      {/* 2. List Area */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[500px] relative flex flex-col">
-        
-        {/* Header: Tabs, Search & Filter */}
         <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem] space-y-3">
-            
-            {/* TABS */}
             <div className="flex bg-gray-100 p-1 rounded-xl">
                 <button 
                     onClick={() => { setActiveTab('distributed'); setPage(1); }}
@@ -129,9 +197,7 @@ export default function HistoryPage() {
                 </button>
             </div>
 
-            {/* ⭐ Search & Filter Row */}
             <div className="flex gap-2">
-                {/* Search Input */}
                 <div className="relative flex-1">
                     <input 
                         type="text" 
@@ -142,23 +208,17 @@ export default function HistoryPage() {
                     />
                     <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
-
-                {/* ⭐ Session Dropdown */}
                 <select 
                     value={selectedSession} 
                     onChange={(e) => { setSelectedSession(e.target.value); setPage(1); }}
                     className="bg-gray-50 text-gray-700 p-3 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-bold w-28 appearance-none"
-                    style={{ backgroundImage: 'none' }} // ডিফল্ট অ্যারো লুকানোর জন্য (অপশনাল)
                 >
                     <option value="">All Batch</option>
-                    {sessions.map((session) => (
-                        <option key={session} value={session}>{session}</option>
-                    ))}
+                    {sessions.map((session) => <option key={session} value={session}>{session}</option>)}
                 </select>
             </div>
         </div>
 
-        {/* List Items */}
         <div className="p-2 space-y-2 pb-20 flex-1">
             {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-2">
@@ -169,7 +229,7 @@ export default function HistoryPage() {
                 historyData.history.map((record) => (
                     <div 
                         key={record._id} 
-                        onClick={() => setSelectedStudent(record)} 
+                        onClick={() => { setSelectedStudent(record); setIsEditingSize(false); }} 
                         className="p-4 rounded-2xl hover:bg-gray-50 transition-all cursor-pointer border border-transparent hover:border-indigo-100 group active:scale-[0.98]"
                     >
                         <div className="flex justify-between items-center">
@@ -180,12 +240,8 @@ export default function HistoryPage() {
                                 <div>
                                     <h4 className="font-bold text-gray-800 text-sm leading-tight">{record.name}</h4>
                                     <div className="flex items-center gap-2 mt-1.5">
-                                        <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded font-mono font-medium">
-                                            {record.roll}
-                                        </span>
-                                        <span className="text-[10px] text-indigo-500 border border-indigo-100 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">
-                                            {record.session}
-                                        </span>
+                                        <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded font-mono font-medium">{record.roll}</span>
+                                        <span className="text-[10px] text-indigo-500 border border-indigo-100 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">{record.session}</span>
                                     </div>
                                 </div>
                             </div>
@@ -196,37 +252,21 @@ export default function HistoryPage() {
                     </div>
                 ))
             ) : (
-                <div className="text-center py-20 text-gray-400 text-sm">
-                    <p>No records found.</p>
-                </div>
+                <div className="text-center py-20 text-gray-400 text-sm"><p>No records found.</p></div>
             )}
         </div>
-
-        {/* Pagination */}
+        
+        {/* Pagination Logic (Same as before) */}
         {historyData.pagination.totalPages > 1 && (
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-gray-100 flex justify-between items-center rounded-b-[2rem]">
-                <button 
-                    disabled={page === 1}
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    className="px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 disabled:opacity-50 hover:bg-gray-200 transition"
-                >
-                    Prev
-                </button>
-                <span className="text-xs font-medium text-gray-400">
-                    Page {page} / {historyData.pagination.totalPages}
-                </span>
-                <button 
-                    disabled={page === historyData.pagination.totalPages}
-                    onClick={() => setPage(p => p + 1)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition"
-                >
-                    Next
-                </button>
-            </div>
+             <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-gray-100 flex justify-between items-center rounded-b-[2rem]">
+                <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-600 disabled:opacity-50">Prev</button>
+                <span className="text-xs font-medium text-gray-400">Page {page} / {historyData.pagination.totalPages}</span>
+                <button disabled={page === historyData.pagination.totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold disabled:opacity-50">Next</button>
+             </div>
         )}
       </div>
 
-      {/* Details Modal (সেম থাকছে) */}
+      {/* --- UPDATED STUDENT DETAILS MODAL --- */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudent(null)}></div>
@@ -243,6 +283,7 @@ export default function HistoryPage() {
                 </div>
 
                 <div className="p-6 space-y-4">
+                    {/* Basic Info */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                             <p className="text-xs text-gray-500 uppercase font-bold mb-1">Roll Number</p>
@@ -254,12 +295,36 @@ export default function HistoryPage() {
                         </div>
                     </div>
 
+                    {/* Size Management Section */}
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <span className="text-2xl">👕</span>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase font-bold">T-Shirt Size</p>
-                                <p className="text-xl font-black text-gray-900">{selectedStudent.tShirtSize}</p>
+                                
+                                {isEditingSize ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <select 
+                                            value={newSizeVal || selectedStudent.tShirtSize} 
+                                            onChange={(e) => setNewSizeVal(e.target.value)}
+                                            className="bg-white border border-indigo-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-1"
+                                        >
+                                            {['S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <button onClick={handleUpdateSize} className="bg-green-500 text-white p-1 rounded hover:bg-green-600">✓</button>
+                                        <button onClick={() => setIsEditingSize(false)} className="bg-gray-300 text-gray-700 p-1 rounded hover:bg-gray-400">✕</button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-xl font-black text-gray-900">{selectedStudent.tShirtSize}</p>
+                                        <button 
+                                            onClick={() => { setIsEditingSize(true); setNewSizeVal(selectedStudent.tShirtSize); }} 
+                                            className="text-gray-400 hover:text-indigo-600 transition"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="text-right">
@@ -270,6 +335,17 @@ export default function HistoryPage() {
                              )}
                         </div>
                     </div>
+
+                    {/* Undo Button (Only if Distributed) */}
+                    {selectedStudent.isUsed && (
+                        <button 
+                            onClick={handleUndo}
+                            className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl transition flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                            Undo Distribution (Return Kit)
+                        </button>
+                    )}
 
                     <div className="border-t border-gray-100 pt-4 mt-2">
                          {selectedStudent.isUsed && (
