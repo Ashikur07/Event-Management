@@ -1,13 +1,18 @@
-import withPWAInit from "@ducanh2912/next-pwa";
-
-const withPWA = withPWAInit({
+/** @type {import('next').NextConfig} */
+const withPWA = require("@ducanh2912/next-pwa").default({
   dest: "public",
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  swcMinify: true,
   disable: process.env.NODE_ENV === "development", // ডেভেলপমেন্ট মোডে PWA বন্ধ থাকবে
-  // register: true,
-  // skipWaiting: true,
+  workboxOptions: {
+    disableDevLogs: true,
+  },
 });
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  // তোমার অন্য কনফিগ থাকলে এখানে থাকবে
+};
 
-export default withPWA(nextConfig);
+module.exports = withPWA(nextConfig);
