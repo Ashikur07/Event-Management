@@ -20,14 +20,15 @@ export async function GET(req) {
   try {
     const query = {};
     
-    // ১. স্ট্যাটাস ফিল্টার
+    // ⭐ ফিক্স: পেন্ডিং ডাটা ঠিকমতো আসার জন্য লজিক আপডেট
     if (filter === 'pending') {
-        query.isUsed = false;
+        // isUsed: false অথবা ফিল্ড নেই - দুটোই পেন্ডিং হিসেবে ধরবে
+        query.isUsed = { $ne: true }; 
     } else {
         query.isUsed = true;
     }
 
-    // ২. সার্চ লজিক
+    // সার্চ লজিক
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -38,7 +39,6 @@ export async function GET(req) {
 
     const skip = (page - 1) * limit;
     
-    // ডাটা আনা (lean ব্যবহার করা হয়েছে ফাস্ট পারফরমেন্সের জন্য)
     const history = await Ticket.find(query)
       .sort({ updatedAt: -1 }) 
       .skip(skip)
@@ -47,11 +47,12 @@ export async function GET(req) {
     
     const totalDocs = await Ticket.countDocuments(query);
 
-    // ৩. স্ট্যাটাস কাউন্ট
+    // স্ট্যাটাস কাউন্ট
     const totalDistributed = await Ticket.countDocuments({ isUsed: true });
-    const totalPending = await Ticket.countDocuments({ isUsed: false });
+    // isUsed: { $ne: true } ব্যবহার করছি সঠিক পেন্ডিং কাউন্টের জন্য
+    const totalPending = await Ticket.countDocuments({ isUsed: { $ne: true } }); 
     
-    // ৪. সাইজ ব্রেকডাউন (শুধুমাত্র যারা নিয়েছে তাদের)
+    // সাইজ ব্রেকডাউন (শুধুমাত্র যারা নিয়েছে তাদের)
     const sizeStats = await Ticket.aggregate([
       { $match: { isUsed: true } },
       { $group: { _id: '$tShirtSize', count: { $sum: 1 } } }
