@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createToken } from '@/lib/auth'; // আগের স্টেপে বানানো হেল্পার ইম্পোর্ট
 
 export async function POST(request) {
   const { password, type } = await request.json();
 
   let role = null;
 
-  // ১. ভিউয়ার হলে পাসওয়ার্ড লাগবে না
+  // ১. ভিউয়ার চেক
   if (type === 'viewer') {
     role = 'viewer';
   } 
@@ -18,19 +17,17 @@ export async function POST(request) {
   else if (password === process.env.MOD_PASS) {
     role = 'moderator';
   } 
-  // ৪. পাসওয়ার্ড ভুল হলে
+  // ৪. ভুল পাসওয়ার্ড
   else {
     return NextResponse.json({ error: 'Wrong Password!' }, { status: 401 });
   }
 
-  // ৫. ✅ সিকিউর টোকেন তৈরি করা (পাসওয়ার্ডের সিগনেচার সহ)
-  const token = await createToken({ role });
-
   const response = NextResponse.json({ success: true, role });
 
-  // ৬. কুকি ১: সিকিউর টোকেন (মিডলওয়্যার এর জন্য)
-  // এটা HttpOnly, তাই ব্রাউজারে JS দিয়ে দেখা যাবে না
-  response.cookies.set('session_token', token, {
+  // ৫. কুকি সেট করা (সরাসরি রোল সেভ করা হচ্ছে, কোনো টোকেন এনক্রিপশন ছাড়া)
+  
+  // কুকি ১: সিকিউরিটি চেকের জন্য (HttpOnly)
+  response.cookies.set('session_token', role, { 
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
@@ -38,13 +35,12 @@ export async function POST(request) {
     maxAge: 60 * 60 * 24 * 10 // ১০ দিন
   });
 
-  // ৭. কুকি ২: রোল (ফ্রন্টএন্ড UI এর জন্য)
-  // এটা ক্লায়েন্ট সাইড থেকে রিড করা যাবে
+  // কুকি ২: ফ্রন্টএন্ডের জন্য (UI তে দেখানোর জন্য)
   response.cookies.set('app_role', role, {
-    httpOnly: false, 
+    httpOnly: false, // এটা ক্লায়েন্ট সাইড থেকে পড়া যাবে
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: 60 * 60 * 24 * 10 // ১০ দিন
+    maxAge: 60 * 60 * 24 * 10
   });
 
   return response;

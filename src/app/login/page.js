@@ -7,7 +7,7 @@ import Cookies from 'js-cookie';
 export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // ১. নতুন স্টেট (পাসওয়ার্ড দেখা/লুকানোর জন্য)
+  const [showPassword, setShowPassword] = useState(false); // ১. নতুন স্টেট
   const router = useRouter();
 
   const handleLogin = async (type) => {
@@ -84,9 +84,9 @@ export default function LoginPage() {
                 </svg>
             </div>
 
-            {/* Input Field - ২. টাইপ চেঞ্জ এবং প্যাডিং আপডেট */}
+            {/* Input Field */}
             <input 
-              type={showPassword ? "text" : "password"} 
+              type={showPassword ? "text" : "password"} // ২. টাইপ চেঞ্জ হবে
               placeholder="Enter Access Key" 
               className="w-full pl-11 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-bold placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm hover:bg-white"
               value={password}
