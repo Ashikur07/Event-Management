@@ -14,6 +14,18 @@ export default function HistoryPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  
+  // ⭐ নতুন স্টেট: সেশন ফিল্টার
+  const [selectedSession, setSelectedSession] = useState('');
+
+  // ⭐ সেশন জেনারেটর ফাংশন (1998-99 থেকে 2024-25)
+  const sessions = [];
+  for (let i = 1998; i <= 2024; i++) {
+    const nextYear = (i + 1).toString().slice(-2); // 1999 -> '99'
+    sessions.push(`${i}-${nextYear}`);
+  }
+  // উল্টো করে দেখালাম যাতে লেটেস্ট ব্যাচ আগে থাকে
+  sessions.reverse(); 
 
   // আইকন ম্যাপিং
   const getIcon = (name) => {
@@ -36,8 +48,8 @@ export default function HistoryPage() {
       try {
         const [itemsRes, historyRes] = await Promise.all([
            fetch('/api/kits/items'), 
-           // API কল করার সময় সঠিক ফিল্টার যাচ্ছে
-           fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}`) 
+           // ⭐ API কলে session প্যারামিটার যুক্ত করা হলো
+           fetch(`/api/kits/history?page=${page}&limit=15&search=${search}&filter=${activeTab}&session=${selectedSession}`) 
         ]);
 
         const itemsData = await itemsRes.json();
@@ -57,24 +69,19 @@ export default function HistoryPage() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [page, search, activeTab]);
+  }, [page, search, activeTab, selectedSession]); // selectedSession ডিপেন্ডেন্সি এড করা হলো
 
   return (
     <MobileLayout title="History Log">
       
-      {/* 1. Summary Cards (Only show for Distributed Tab) */}
+      {/* 1. Summary Cards (Distributed Tab) */}
       {activeTab === 'distributed' && (
         <div className="mb-6 animate-in fade-in slide-in-from-top-4">
             <h3 className="text-gray-700 font-bold text-sm mb-3 px-1">Distributed Items</h3>
             
             <div className="grid grid-cols-2 gap-3">
-                
-                {/* ⭐ ফিক্স: এখানে আমরা সব আইটেম লুপ করছি।
-                   Sized আইটেম (Polo, Jersey) এবং General আইটেম সব আলাদা কার্ডে দেখাবে।
-                */}
                 {items.map((item) => {
                     const isSized = item.category === 'Sized';
-                    
                     return (
                         <div key={item._id} className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col items-center text-center relative overflow-hidden group hover:shadow-md transition-all">
                             <div className="text-3xl mb-1">{getIcon(item.name)}</div>
@@ -83,7 +90,6 @@ export default function HistoryPage() {
                                 {historyData.stats.distributedCount} <span className="text-[10px] text-gray-400 font-normal">sets</span>
                             </p>
                             
-                            {/* যদি Sized আইটেম হয় (Polo/Jersey), তবে হোভারে সাইজ দেখাবে */}
                             {isSized && (
                                 <div className="absolute inset-0 bg-indigo-600/95 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity p-2 text-xs rounded-2xl cursor-help z-10">
                                     <p className="font-bold mb-1 border-b border-white/20 pb-1 w-full">Size Breakdown</p>
@@ -97,7 +103,6 @@ export default function HistoryPage() {
                         </div>
                     );
                 })}
-
             </div>
         </div>
       )}
@@ -105,11 +110,11 @@ export default function HistoryPage() {
       {/* 2. Student List Area */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-1 min-h-[500px] relative flex flex-col">
         
-        {/* Header: Tabs & Search */}
-        <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem]">
+        {/* Header: Tabs, Search & Filter */}
+        <div className="p-4 border-b border-gray-50 sticky top-0 bg-white z-10 rounded-t-[2rem] space-y-3">
             
             {/* TABS */}
-            <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
+            <div className="flex bg-gray-100 p-1 rounded-xl">
                 <button 
                     onClick={() => { setActiveTab('distributed'); setPage(1); }}
                     className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${activeTab === 'distributed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -124,16 +129,32 @@ export default function HistoryPage() {
                 </button>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Search name, roll..." 
-                    className="w-full bg-gray-50 text-gray-700 p-3 pl-10 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400"
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                />
-                <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            {/* ⭐ Search & Filter Row */}
+            <div className="flex gap-2">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                    <input 
+                        type="text" 
+                        placeholder="Name, Roll..." 
+                        className="w-full bg-gray-50 text-gray-700 p-3 pl-10 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder-gray-400 text-sm"
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    />
+                    <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+
+                {/* ⭐ Session Dropdown */}
+                <select 
+                    value={selectedSession} 
+                    onChange={(e) => { setSelectedSession(e.target.value); setPage(1); }}
+                    className="bg-gray-50 text-gray-700 p-3 rounded-xl border-none focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-bold w-28 appearance-none"
+                    style={{ backgroundImage: 'none' }} // ডিফল্ট অ্যারো লুকানোর জন্য (অপশনাল)
+                >
+                    <option value="">All Batch</option>
+                    {sessions.map((session) => (
+                        <option key={session} value={session}>{session}</option>
+                    ))}
+                </select>
             </div>
         </div>
 
@@ -162,7 +183,7 @@ export default function HistoryPage() {
                                         <span className="text-[11px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded font-mono font-medium">
                                             {record.roll}
                                         </span>
-                                        <span className="text-[10px] text-gray-400 border border-gray-200 px-2 py-0.5 rounded-full font-medium">
+                                        <span className="text-[10px] text-indigo-500 border border-indigo-100 bg-indigo-50 px-2 py-0.5 rounded-full font-bold">
                                             {record.session}
                                         </span>
                                     </div>
@@ -205,7 +226,7 @@ export default function HistoryPage() {
         )}
       </div>
 
-      {/* --- STUDENT DETAILS MODAL --- */}
+      {/* Details Modal (সেম থাকছে) */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedStudent(null)}></div>
