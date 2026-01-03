@@ -13,7 +13,6 @@ export async function POST(request) {
   try {
     await connectDB();
     const { action, id, newSize } = await request.json(); 
-    // action = 'undo' | 'update_size'
 
     const ticket = await Ticket.findById(id);
     if (!ticket) return NextResponse.json({ error: 'Student not found' }, { status: 404 });
@@ -24,17 +23,24 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Already pending!' }, { status: 400 });
         }
 
-        // ১. Sized আইটেমের স্টক ফেরত দেওয়া (Increase Stock)
+        // ১. Sized আইটেমের স্টক ফেরত দেওয়া
         const sizeField = `sizeStock.${ticket.tShirtSize}`;
         await KitItem.updateMany(
             { category: 'Sized' },
-            { $inc: { [sizeField]: 1 } } // ১ বাড়ালাম
+            { $inc: { [sizeField]: 1 } } 
         );
 
-        // ২. General আইটেমের স্টক ফেরত দেওয়া
+        // ⭐ ২. General আইটেমের স্টক ফেরত দেওয়া (Bag লজিক সহ)
+        let generalQuery = { category: 'General' };
+
+        // লজিক: Current Student হলে ব্যাগের স্টক বাড়বে না (কারণ সে ব্যাগ নেয়নি)
+        if (ticket.participantType === 'Current Student') {
+             generalQuery.name = { $not: { $regex: 'Bag', $options: 'i' } };
+        }
+
         await KitItem.updateMany(
-            { category: 'General' },
-            { $inc: { stock: 1 } } // ১ বাড়ালাম
+            generalQuery,
+            { $inc: { stock: 1 } } 
         );
 
         // ৩. টিকেট স্ট্যাটাস আপডেট
@@ -44,7 +50,7 @@ export async function POST(request) {
         return NextResponse.json({ success: true, message: 'Distribution reverted successfully!' });
     }
 
-    // --- CASE 2: UPDATE T-SHIRT SIZE ---
+    // --- CASE 2: UPDATE T-SHIRT SIZE (আগের মতোই) ---
     if (action === 'update_size') {
         const oldSize = ticket.tShirtSize;
         
@@ -52,12 +58,10 @@ export async function POST(request) {
             return NextResponse.json({ success: true, message: 'Same size, no change.' });
         }
 
-        // যদি অলরেডি কিট নিয়ে থাকে (Distributed), তবে স্টক সোয়াপ করতে হবে
         if (ticket.isUsed) {
             const oldSizeField = `sizeStock.${oldSize}`;
             const newSizeField = `sizeStock.${newSize}`;
 
-            // নতুন সাইজের স্টক আছে কিনা চেক করা
             const checkStock = await KitItem.findOne({ 
                 category: 'Sized', 
                 [newSizeField]: { $lte: 0 } 
@@ -67,14 +71,12 @@ export async function POST(request) {
                 return NextResponse.json({ error: `Stock out for new size ${newSize}!` }, { status: 400 });
             }
 
-            // স্টক সোয়াপ: নতুনটা কমানো (-1), পুরানোটা বাড়ানো (+1)
             await KitItem.updateMany(
                 { category: 'Sized' },
                 { $inc: { [newSizeField]: -1, [oldSizeField]: 1 } }
             );
         }
 
-        // ডাটাবেসে সাইজ আপডেট
         ticket.tShirtSize = newSize;
         await ticket.save();
 
